@@ -16,6 +16,8 @@ Real-time sign language recognition system using:
 
 ## Run
 
+cd ai-model
+
 pip install -r requirements.txt
 
 python predict.py
