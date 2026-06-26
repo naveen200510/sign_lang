@@ -1,7 +1,13 @@
-venv/
+# Python
 __pycache__/
 *.pyc
 
-dataset/
+# Virtual environments
+venv/
+ai-env/
 
+# Database
+*.db
+
+# macOS
 .DS_Store

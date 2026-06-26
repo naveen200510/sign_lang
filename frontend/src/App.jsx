@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+
 
 import Header from "./components/Header";
 import CameraFeed from "./components/CameraFeed";
@@ -9,6 +10,16 @@ import HistoryPanel from "./components/HistoryPanel";
 import StatusPanel from "./components/StatusPanel";
 
 function App() {
+
+  useEffect(() => {
+  return () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+  };
+}, []);
+
+  const intervalRef = useRef(null);
   const [translation, setTranslation] = useState(
     "Press Start to begin translation"
   );
@@ -21,45 +32,79 @@ function App() {
 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleStart = () => {
-    setIsProcessing(true);
+  const handleStart = async () => {
 
-    setTranslation("Analyzing Hand Gesture...");
+  if (intervalRef.current) return;
 
-    setTimeout(() => {
-      const translations = [
-        "Hello",
-        "Thank You",
-        "Good Morning",
-        "Welcome",
-        "How Are You?",
-      ];
+  setIsProcessing(true);
+  setTranslation("Starting camera...");
 
-      const randomText =
-        translations[
-          Math.floor(Math.random() * translations.length)
-        ];
+  try {
 
-      const randomConfidence =
-        Math.floor(Math.random() * 15) + 85;
+    await fetch(
+      "http://127.0.0.1:5000/start",
+      {
+        method: "POST"
+      }
+    );
 
-      setTranslation(randomText);
+    intervalRef.current = setInterval(async () => {
 
-      setConfidence(randomConfidence);
+      const response = await fetch(
+        "http://127.0.0.1:5000/latest_prediction"
+      );
 
-      setHistory((prev) => [
-        randomText,
-        ...prev,
-      ]);
+      const data = await response.json();
 
-      setIsProcessing(false);
-    }, 2000);
-  };
+      if (data.translation) {
 
-  const handleStop = () => {
-    setTranslation("Translation Stopped");
-    setIsProcessing(false);
-  };
+        setTranslation(data.translation);
+
+        setConfidence(
+          Math.round(data.confidence * 100)
+        );
+
+        setHistory(prev => {
+
+          if (prev[0] === data.translation)
+            return prev;
+
+          return [
+            data.translation,
+            ...prev
+          ];
+
+        });
+
+      }
+
+    }, 300);
+
+  } catch (error) {
+
+    console.error(error);
+
+    setTranslation("Backend Error");
+
+  }
+
+};
+
+const handleStop = async () => {
+
+  clearInterval(intervalRef.current);
+  intervalRef.current = null;
+
+  await fetch(
+    "http://127.0.0.1:5000/stop",
+    {
+      method: "POST"
+    }
+  );
+
+  setIsProcessing(false);
+  setTranslation("Translation Stopped");
+};
 
   const handleSpeak = () => {
     const speech =
