@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 
 
-import Header from "./components/Header";
-import CameraFeed from "./components/CameraFeed";
-import TranslationCard from "./components/TranslationCard";
+import Header from "./components/header";
+import CameraFeed from "./components/camerafeed";
+import TranslationCard from "./components/translationcard";
 import ConfidenceBar from "./components/ConfidenceBar";
 import Controls from "./components/Controls";
 import HistoryPanel from "./components/HistoryPanel";
-import StatusPanel from "./components/StatusPanel";
+import StatusPanel from "./components/statuspanel";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:5001";
 
