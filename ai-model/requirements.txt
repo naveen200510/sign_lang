@@ -1,5 +1,6 @@
 absl-py==2.4.0
 astunparse==1.6.3
+
 attrs==26.1.0
 certifi==2026.6.17
 cffi==2.0.0
@@ -26,8 +27,8 @@ mediapipe==0.10.14
 ml-dtypes==0.3.2
 namex==0.1.0
 numpy==1.26.4
-opencv-contrib-python==4.13.0.92
-opencv-python==4.13.0.92
+opencv-contrib-python==4.9.0.80
+opencv-python==4.9.0.80
 opt_einsum==3.4.0
 optree==0.19.1
 packaging==26.2

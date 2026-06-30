@@ -1,64 +1,19 @@
-from flask import Flask, request ,jsonify
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-from database import conn,cursor
+from database import conn, cursor
 import sys
 import os
-import threading
-import time
-
+import base64
+import cv2
+import numpy as np
 
 sys.path.append(
     os.path.abspath("../ai-model")
 )
 
-from predict_api import (
-    start_camera,
-    stop_camera,
-    get_prediction
-)
-# Shared variables
-latest_prediction = {
-    "gesture": None,
-    "confidence": 0
-}
+from predict_api import predict_gesture
 
-running = False
-camera_thread = None
-
-def prediction_loop():
-    global latest_prediction, running
-
-    last_saved = None
-
-    while running:
-
-        gesture, confidence = get_prediction()
-
-        print("Prediction:", gesture, confidence)   # <-- ADD THIS
-
-        latest_prediction = {
-            "gesture": gesture,
-            "confidence": confidence
-        }
-
-        if gesture is not None and gesture != last_saved:
-
-            cursor.execute(
-                """
-                INSERT INTO translations
-                (gesture, translation)
-                VALUES (?, ?)
-                """,
-                (gesture, gesture)
-            )
-
-            conn.commit()
-
-            last_saved = gesture
-
-        time.sleep(0.1)
-
-app=Flask(__name__)
+app = Flask(__name__)
 CORS(app)
 
 @app.route("/")
@@ -67,45 +22,63 @@ def home():
 
 @app.route("/start", methods=["POST"])
 def start_prediction():
-    global running, camera_thread
-
-    if not running:
-        running = True
-
-        start_camera()      
-
-        camera_thread = threading.Thread(
-            target=prediction_loop,
-            daemon=True
-        )
-
-        camera_thread.start()
-
     return jsonify({
-        "message": "Prediction Started"
-    })
-
-@app.route("/latest_prediction")
-def latest():
-
-    return jsonify({
-        "translation": latest_prediction["gesture"],
-        "confidence": latest_prediction["confidence"]
+        "message": "Prediction Started (Cloud Mock)"
     })
 
 @app.route("/stop", methods=["POST"])
 def stop_prediction():
-    global running
-
-    running = False
-
-    stop_camera()      
-
     return jsonify({
-        "message": "Prediction Stopped"
+        "message": "Prediction Stopped (Cloud Mock)"
     })
 
+@app.route("/predict", methods=["POST"])
+def predict():
+    data = request.get_json()
+    if not data or "image" not in data:
+        return jsonify({"error": "No image data provided"}), 400
 
+    image_data = data["image"]
+    if "," in image_data:
+        image_data = image_data.split(",")[1]
+
+    try:
+        # Decode base64 image data
+        img_bytes = base64.b64decode(image_data)
+        np_arr = np.frombuffer(img_bytes, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return jsonify({"error": "Failed to decode image"}), 400
+
+        # Perform gesture prediction
+        gesture, confidence = predict_gesture(frame)
+
+        # Log translation to database if it's a new gesture
+        if gesture is not None:
+            cursor.execute(
+                "SELECT gesture FROM translations ORDER BY id DESC LIMIT 1"
+            )
+            row = cursor.fetchone()
+            last_saved = row[0] if row else None
+
+            if gesture != last_saved:
+                cursor.execute(
+                    """
+                    INSERT INTO translations
+                    (gesture, translation)
+                    VALUES (?, ?)
+                    """,
+                    (gesture, gesture)
+                )
+                conn.commit()
+
+        return jsonify({
+            "translation": gesture,
+            "confidence": confidence
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/history")
 def history():
@@ -115,16 +88,16 @@ def history():
 
     rows = cursor.fetchall()
 
-    result =[]
+    result = []
 
     for row in rows:
         result.append({
-            "id":row[0],
-            "gesture":row[1],
-            "translation":row[2]
+            "id": row[0],
+            "gesture": row[1],
+            "translation": row[2]
         })
 
     return jsonify(result)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

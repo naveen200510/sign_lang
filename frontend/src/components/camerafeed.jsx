@@ -1,6 +1,6 @@
 import Webcam from "react-webcam";
 
-function CameraFeed({ cameraOn, setCameraOn }) {
+function CameraFeed({ cameraOn, setCameraOn, webcamRef }) {
   return (
     <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
       <h2 className="text-2xl font-semibold text-gray-900 mb-4">
@@ -27,6 +27,7 @@ function CameraFeed({ cameraOn, setCameraOn }) {
         {cameraOn ? (
           <Webcam
             audio={false}
+            ref={webcamRef}
             screenshotFormat="image/jpeg"
             className="w-full h-96 object-cover"
           />

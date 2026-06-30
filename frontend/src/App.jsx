@@ -9,6 +9,8 @@ import Controls from "./components/Controls";
 import HistoryPanel from "./components/HistoryPanel";
 import StatusPanel from "./components/StatusPanel";
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:5001";
+
 function App() {
 
   useEffect(() => {
@@ -20,6 +22,8 @@ function App() {
 }, []);
 
   const intervalRef = useRef(null);
+  const webcamRef = useRef(null);
+  
   const [translation, setTranslation] = useState(
     "Press Start to begin translation"
   );
@@ -32,79 +36,64 @@ function App() {
 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleStart = async () => {
+  const handleStart = () => {
+    if (intervalRef.current) return;
 
-  if (intervalRef.current) return;
-
-  setIsProcessing(true);
-  setTranslation("Starting camera...");
-
-  try {
-
-    await fetch(
-      "http://127.0.0.1:5000/start",
-      {
-        method: "POST"
-      }
-    );
+    setIsProcessing(true);
+    setTranslation("Processing...");
 
     intervalRef.current = setInterval(async () => {
+      if (!webcamRef.current) return;
 
-      const response = await fetch(
-        "http://127.0.0.1:5000/latest_prediction"
-      );
+      const imageSrc = webcamRef.current.getScreenshot();
+      if (!imageSrc) return;
 
-      const data = await response.json();
-
-      if (data.translation) {
-
-        setTranslation(data.translation);
-
-        setConfidence(
-          Math.round(data.confidence * 100)
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/predict`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ image: imageSrc })
+          }
         );
 
-        setHistory(prev => {
+        const data = await response.json();
 
-          if (prev[0] === data.translation)
-            return prev;
+        if (data.translation) {
+          setTranslation(data.translation);
 
-          return [
-            data.translation,
-            ...prev
-          ];
+          setConfidence(
+            Math.round(data.confidence * 100)
+          );
 
-        });
+          setHistory(prev => {
+            if (prev[0] === data.translation)
+              return prev;
 
+            return [
+              data.translation,
+              ...prev
+            ];
+          });
+        }
+      } catch (error) {
+        console.error(error);
+        setTranslation("Backend Error");
       }
-
     }, 300);
+  };
 
-  } catch (error) {
-
-    console.error(error);
-
-    setTranslation("Backend Error");
-
-  }
-
-};
-
-const handleStop = async () => {
-
-  clearInterval(intervalRef.current);
-  intervalRef.current = null;
-
-  await fetch(
-    "http://127.0.0.1:5000/stop",
-    {
-      method: "POST"
+  const handleStop = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
-  );
-
-  setIsProcessing(false);
-  setTranslation("Translation Stopped");
-};
+    setIsProcessing(false);
+    setTranslation("Translation Stopped");
+  };
 
   const handleSpeak = () => {
     const speech =
@@ -121,6 +110,7 @@ const handleStop = async () => {
         <CameraFeed
           cameraOn={cameraOn}
           setCameraOn={setCameraOn}
+          webcamRef={webcamRef}
         />
 
         <div className="space-y-4">
